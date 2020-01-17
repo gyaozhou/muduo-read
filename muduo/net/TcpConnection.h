@@ -140,11 +140,14 @@ class TcpConnection : noncopyable,
   std::unique_ptr<Channel> channel_;
   const InetAddress localAddr_;
   const InetAddress peerAddr_;
+
   ConnectionCallback connectionCallback_;
+  // zhou: received message hander callback
   MessageCallback messageCallback_;
   WriteCompleteCallback writeCompleteCallback_;
   HighWaterMarkCallback highWaterMarkCallback_;
   CloseCallback closeCallback_;
+
   size_t highWaterMark_;
   Buffer inputBuffer_;
   Buffer outputBuffer_; // FIXME: use list<Buffer> as output buffer.
@@ -153,6 +156,7 @@ class TcpConnection : noncopyable,
   //        bytesReceived_, bytesSent_
 };
 
+// zhou: convert a object semantics to a value semantics.
 typedef std::shared_ptr<TcpConnection> TcpConnectionPtr;
 
 }  // namespace net

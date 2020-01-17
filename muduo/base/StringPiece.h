@@ -66,6 +66,7 @@ class StringArg // copyable
   const char* str_;
 };
 
+// zhou:
 class StringPiece {
  private:
   const char*   ptr_;

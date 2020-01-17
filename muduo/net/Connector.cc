@@ -37,16 +37,20 @@ Connector::~Connector()
   assert(!channel_);
 }
 
+// zhou: can be called in any thread
 void Connector::start()
 {
   connect_ = true;
   loop_->runInLoop(std::bind(&Connector::startInLoop, this)); // FIXME: unsafe
 }
 
+// zhou: task run in specified EventLoop
 void Connector::startInLoop()
 {
   loop_->assertInLoopThread();
+
   assert(state_ == kDisconnected);
+
   if (connect_)
   {
     connect();
@@ -75,9 +79,12 @@ void Connector::stopInLoop()
   }
 }
 
+// zhou: do solid work
 void Connector::connect()
 {
+  // zhou: use NonBlock socket to perform connect(), have to handle more situations
   int sockfd = sockets::createNonblockingOrDie(serverAddr_.family());
+
   int ret = sockets::connect(sockfd, serverAddr_.getSockAddr());
   int savedErrno = (ret == 0) ? 0 : errno;
   switch (savedErrno)
@@ -125,11 +132,15 @@ void Connector::restart()
   startInLoop();
 }
 
+// zhou: connect is ongoing
 void Connector::connecting(int sockfd)
 {
   setState(kConnecting);
   assert(!channel_);
+
+  // zhou: "std::unique_ptr"
   channel_.reset(new Channel(loop_, sockfd));
+
   channel_->setWriteCallback(
       std::bind(&Connector::handleWrite, this)); // FIXME: unsafe
   channel_->setErrorCallback(
@@ -159,6 +170,7 @@ void Connector::handleWrite()
 {
   LOG_TRACE << "Connector::handleWrite " << state_;
 
+  // zhou: for Connector, only connected event, no other kinds writable event.
   if (state_ == kConnecting)
   {
     int sockfd = removeAndResetChannel();
@@ -206,6 +218,7 @@ void Connector::handleError()
   }
 }
 
+// zhou: connect failed temporary, retry later.
 void Connector::retry(int sockfd)
 {
   sockets::close(sockfd);
@@ -214,8 +227,10 @@ void Connector::retry(int sockfd)
   {
     LOG_INFO << "Connector::retry - Retry connecting to " << serverAddr_.toIpPort()
              << " in " << retryDelayMs_ << " milliseconds. ";
+
     loop_->runAfter(retryDelayMs_/1000.0,
                     std::bind(&Connector::startInLoop, shared_from_this()));
+
     retryDelayMs_ = std::min(retryDelayMs_ * 2, kMaxRetryDelayMs);
   }
   else
@@ -223,4 +238,3 @@ void Connector::retry(int sockfd)
     LOG_DEBUG << "do not connect";
   }
 }
-

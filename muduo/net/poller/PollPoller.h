@@ -22,6 +22,7 @@ namespace muduo
 namespace net
 {
 
+// zhou: implement using poll(2) as a kind of Poller.
 ///
 /// IO Multiplexing with poll(2).
 ///

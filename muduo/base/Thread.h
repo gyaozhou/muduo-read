@@ -39,6 +39,7 @@ class Thread : noncopyable
  private:
   void setDefaultName();
 
+
   bool       started_;
   bool       joined_;
   pthread_t  pthreadId_;
@@ -47,6 +48,8 @@ class Thread : noncopyable
   string     name_;
   CountDownLatch latch_;
 
+  // zhou: used to assign a unique sequence number for this thread.
+  //       Could be overrided by user provided thread name.
   static AtomicInt32 numCreated_;
 };
 

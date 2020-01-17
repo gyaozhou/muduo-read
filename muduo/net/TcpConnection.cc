@@ -76,7 +76,7 @@ bool TcpConnection::getTcpInfo(struct tcp_info* tcpi) const
   return socket_->getTcpInfo(tcpi);
 }
 
-string TcpConnection::getTcpInfoString() const
+string TcpConnection:getTcpInfoString() const
 {
   char buf[1024];
   buf[0] = '\0';
@@ -84,8 +84,10 @@ string TcpConnection::getTcpInfoString() const
   return buf;
 }
 
+// zhou: thread safe
 void TcpConnection::send(const void* data, int len)
 {
+  // zhou: invoke function below
   send(StringPiece(static_cast<const char*>(data), len));
 }
 
@@ -136,6 +138,7 @@ void TcpConnection::sendInLoop(const StringPiece& message)
   sendInLoop(message.data(), message.size());
 }
 
+// zhou: README, how to avoid memory copy in case of can't send all date immediately.
 void TcpConnection::sendInLoop(const void* data, size_t len)
 {
   loop_->assertInLoopThread();
@@ -156,6 +159,10 @@ void TcpConnection::sendInLoop(const void* data, size_t len)
       remaining = len - nwrote;
       if (remaining == 0 && writeCompleteCallback_)
       {
+        // zhou: because "loop_" is a pointer, the corresponding object has
+        //       different life cycle comparing to TcpConnection object.
+        //       So, we have to make sure the TcpConnection object exist when
+        //       the task running in future.
         loop_->queueInLoop(std::bind(writeCompleteCallback_, shared_from_this()));
       }
     }
@@ -334,6 +341,7 @@ void TcpConnection::connectEstablished()
 void TcpConnection::connectDestroyed()
 {
   loop_->assertInLoopThread();
+
   if (state_ == kConnected)
   {
     setState(kDisconnected);
@@ -344,13 +352,17 @@ void TcpConnection::connectDestroyed()
   channel_->remove();
 }
 
+// zhou: README,
 void TcpConnection::handleRead(Timestamp receiveTime)
 {
   loop_->assertInLoopThread();
   int savedErrno = 0;
+
+  // zhou: "inputBuffer_" will read data from kernel.
   ssize_t n = inputBuffer_.readFd(channel_->fd(), &savedErrno);
   if (n > 0)
   {
+    // zhou: invoke client's handler
     messageCallback_(shared_from_this(), &inputBuffer_, receiveTime);
   }
   else if (n == 0)
@@ -426,4 +438,3 @@ void TcpConnection::handleError()
   LOG_ERROR << "TcpConnection::handleError [" << name_
             << "] - SO_ERROR = " << err << " " << strerror_tl(err);
 }
-

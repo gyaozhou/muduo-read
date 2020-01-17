@@ -11,6 +11,7 @@
 using namespace muduo;
 using namespace muduo::net;
 
+// zhou: define and init static member variable.
 AtomicInt64 Timer::s_numCreated_;
 
 void Timer::restart(Timestamp now)

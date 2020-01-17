@@ -11,6 +11,20 @@
 #include <assert.h>
 #include <pthread.h>
 
+// zhou: Clang Thread Safety Analysis is a C++ language extension which warns
+//       about potential race conditions in code. The analysis is completely
+//       static (i.e. compile-time); there is no run-time overhead.
+//       ...
+//       Thread safety analysis works very much like a type system for
+//       multi-threaded programs. In addition to declaring the type of data
+//       (e.g. int, float, etc.), the programmer can (optionally) declare how
+//       access to that data is controlled in a multi-threaded environment.
+//       For example, if foo is guarded by the mutex mu, then the analysis will
+//       issue a warning whenever a piece of code reads or writes to foo without
+//       first locking mu. Similarly, if there are particular routines that
+//       should only be called by the GUI thread, then the analysis will warn if
+//       other threads call those routines.
+
 // Thread safety annotations {
 // https://clang.llvm.org/docs/ThreadSafetyAnalysis.html
 
@@ -28,6 +42,9 @@
 #define SCOPED_CAPABILITY \
   THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
 
+// zhou: GUARDED_BY is an attribute on data members, which declares that the data
+//       member is protected by the given capability.
+//       Here is just a Clang security check.
 #define GUARDED_BY(x) \
   THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))
 
@@ -93,6 +110,7 @@ extern void __assert_perror_fail (int errnum,
 __END_DECLS
 #endif
 
+// zhou: portable method to handle error.
 #define MCHECK(ret) ({ __typeof__ (ret) errnum = (ret);         \
                        if (__builtin_expect(errnum != 0, 0))    \
                          __assert_perror_fail (errnum, __FILE__, __LINE__, __func__);})
@@ -103,6 +121,9 @@ __END_DECLS
                        assert(errnum == 0); (void) errnum;})
 
 #endif // CHECK_PTHREAD_RETURN_VALUE
+
+
+
 
 namespace muduo
 {
@@ -166,6 +187,8 @@ class CAPABILITY("mutex") MutexLock : noncopyable
  private:
   friend class Condition;
 
+  // zhou: defined in scope of "class MutexLock", used to clean "holder_" temporary
+  //       in case of condition variable.
   class UnassignGuard : noncopyable
   {
    public:
@@ -183,6 +206,8 @@ class CAPABILITY("mutex") MutexLock : noncopyable
    private:
     MutexLock& owner_;
   };
+  // zhou: end of "class UnassignGuard"
+
 
   void unassignHolder()
   {
@@ -197,6 +222,7 @@ class CAPABILITY("mutex") MutexLock : noncopyable
   pthread_mutex_t mutex_;
   pid_t holder_;
 };
+// zhou: end of "class MutexLock"
 
 // Use as a stack variable, eg.
 // int Foo::size() const
@@ -204,6 +230,8 @@ class CAPABILITY("mutex") MutexLock : noncopyable
 //   MutexLockGuard lock(mutex_);
 //   return data_.size();
 // }
+
+// zhou: use "class MutexLock" with RAII style
 class SCOPED_CAPABILITY MutexLockGuard : noncopyable
 {
  public:
@@ -222,9 +250,12 @@ class SCOPED_CAPABILITY MutexLockGuard : noncopyable
 
   MutexLock& mutex_;
 };
+// zhou: end of "class MutexLockGuard"
 
 }  // namespace muduo
 
+
+// zhou: interesting !!!
 // Prevent misuse like:
 // MutexLockGuard(mutex_);
 // A tempory object doesn't hold the lock for long!

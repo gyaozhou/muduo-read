@@ -52,11 +52,13 @@ string Timestamp::toFormattedString(bool showMicroseconds) const
   return buf;
 }
 
+// zhou: return a new object everytime.
 Timestamp Timestamp::now()
 {
   struct timeval tv;
   gettimeofday(&tv, NULL);
   int64_t seconds = tv.tv_sec;
+
+  // zhou: pass value
   return Timestamp(seconds * kMicroSecondsPerSecond + tv.tv_usec);
 }
-

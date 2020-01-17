@@ -17,6 +17,9 @@
 using namespace muduo;
 using namespace muduo::net;
 
+// zhou: static const variables
+//       static class member variables must be defined outside class.
+//       const class member variables must be set a init value.
 const int Channel::kNoneEvent = 0;
 const int Channel::kReadEvent = POLLIN | POLLPRI;
 const int Channel::kWriteEvent = POLLOUT;
@@ -63,6 +66,8 @@ void Channel::remove()
   loop_->removeChannel(this);
 }
 
+// zhou: handleEvent() and handleEventWithGuard() work as multiplexer, distribute
+//       events to different callback fn.
 void Channel::handleEvent(Timestamp receiveTime)
 {
   std::shared_ptr<void> guard;
@@ -84,6 +89,7 @@ void Channel::handleEventWithGuard(Timestamp receiveTime)
 {
   eventHandling_ = true;
   LOG_TRACE << reventsToString();
+
   if ((revents_ & POLLHUP) && !(revents_ & POLLIN))
   {
     if (logHup_)
@@ -110,6 +116,7 @@ void Channel::handleEventWithGuard(Timestamp receiveTime)
   {
     if (writeCallback_) writeCallback_();
   }
+
   eventHandling_ = false;
 }
 

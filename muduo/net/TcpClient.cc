@@ -39,6 +39,10 @@ namespace detail
 
 void removeConnection(EventLoop* loop, const TcpConnectionPtr& conn)
 {
+  // zhou: std::bind() need callable object pointer, normal function can be
+  //       converted to pointer in imexplicit way.
+  //       For class member function, we have to use '&' and class object
+  //       address.
   loop->queueInLoop(std::bind(&TcpConnection::connectDestroyed, conn));
 }
 
@@ -63,8 +67,10 @@ TcpClient::TcpClient(EventLoop* loop,
     connect_(true),
     nextConnId_(1)
 {
+  // zhou: set callback to handle when connection is ready.
   connector_->setNewConnectionCallback(
       std::bind(&TcpClient::newConnection, this, _1));
+
   // FIXME setConnectFailedCallback
   LOG_INFO << "TcpClient::TcpClient[" << name_
            << "] - connector " << get_pointer(connector_);
@@ -107,6 +113,8 @@ void TcpClient::connect()
   LOG_INFO << "TcpClient::connect[" << name_ << "] - connecting to "
            << connector_->serverAddress().toIpPort();
   connect_ = true;
+
+  // zhou: ask Connector to connect.
   connector_->start();
 }
 
@@ -129,6 +137,7 @@ void TcpClient::stop()
   connector_->stop();
 }
 
+// zhou:
 void TcpClient::newConnection(int sockfd)
 {
   loop_->assertInLoopThread();
@@ -178,4 +187,3 @@ void TcpClient::removeConnection(const TcpConnectionPtr& conn)
     connector_->restart();
   }
 }
-

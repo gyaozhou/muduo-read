@@ -19,6 +19,7 @@
 namespace muduo
 {
 
+// zhou: README,
 class AsyncLogging : noncopyable
 {
  public:

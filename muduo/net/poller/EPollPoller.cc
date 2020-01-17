@@ -55,18 +55,27 @@ EPollPoller::~EPollPoller()
 Timestamp EPollPoller::poll(int timeoutMs, ChannelList* activeChannels)
 {
   LOG_TRACE << "fd total count " << channels_.size();
+
+  // zhou: '&*events_.begin()' same as events_.data(), get the begining of the
+  //       array.
   int numEvents = ::epoll_wait(epollfd_,
                                &*events_.begin(),
                                static_cast<int>(events_.size()),
                                timeoutMs);
   int savedErrno = errno;
   Timestamp now(Timestamp::now());
+
   if (numEvents > 0)
   {
     LOG_TRACE << numEvents << " events happened";
+
     fillActiveChannels(numEvents, activeChannels);
+    // zhou: no need to reset events_.
+
+    // zhou: README, implicit_cast
     if (implicit_cast<size_t>(numEvents) == events_.size())
     {
+      // zhou: increase the element number, not only enlarge the vector capacity.
       events_.resize(events_.size()*2);
     }
   }
@@ -83,6 +92,7 @@ Timestamp EPollPoller::poll(int timeoutMs, ChannelList* activeChannels)
       LOG_SYSERR << "EPollPoller::poll()";
     }
   }
+
   return now;
 }
 
@@ -90,16 +100,21 @@ void EPollPoller::fillActiveChannels(int numEvents,
                                      ChannelList* activeChannels) const
 {
   assert(implicit_cast<size_t>(numEvents) <= events_.size());
+
   for (int i = 0; i < numEvents; ++i)
   {
     Channel* channel = static_cast<Channel*>(events_[i].data.ptr);
+
 #ifndef NDEBUG
     int fd = channel->fd();
+    // zhou: verify that this 'channel' still not been removed from this epoll.
     ChannelMap::const_iterator it = channels_.find(fd);
     assert(it != channels_.end());
     assert(it->second == channel);
 #endif
+    // zhou: store events happened.
     channel->set_revents(events_[i].events);
+
     activeChannels->push_back(channel);
   }
 }
@@ -107,9 +122,13 @@ void EPollPoller::fillActiveChannels(int numEvents,
 void EPollPoller::updateChannel(Channel* channel)
 {
   Poller::assertInLoopThread();
+
   const int index = channel->index();
+
   LOG_TRACE << "fd = " << channel->fd()
     << " events = " << channel->events() << " index = " << index;
+
+  // zhou: class Channel will set index_=-1 as default, which means "kNew"
   if (index == kNew || index == kDeleted)
   {
     // a new one, add with EPOLL_CTL_ADD
@@ -117,10 +136,12 @@ void EPollPoller::updateChannel(Channel* channel)
     if (index == kNew)
     {
       assert(channels_.find(fd) == channels_.end());
+      // zhou: insert to channel map.
       channels_[fd] = channel;
     }
     else // index == kDeleted
     {
+      // zhou: has been removed from epoll, want to readd to epoll.
       assert(channels_.find(fd) != channels_.end());
       assert(channels_[fd] == channel);
     }
@@ -136,6 +157,8 @@ void EPollPoller::updateChannel(Channel* channel)
     assert(channels_.find(fd) != channels_.end());
     assert(channels_[fd] == channel);
     assert(index == kAdded);
+
+    // zhou: in case of no interesting events, remove it also.
     if (channel->isNoneEvent())
     {
       update(EPOLL_CTL_DEL, channel);
@@ -151,13 +174,18 @@ void EPollPoller::updateChannel(Channel* channel)
 void EPollPoller::removeChannel(Channel* channel)
 {
   Poller::assertInLoopThread();
+
   int fd = channel->fd();
   LOG_TRACE << "fd = " << fd;
+
   assert(channels_.find(fd) != channels_.end());
   assert(channels_[fd] == channel);
   assert(channel->isNoneEvent());
+
   int index = channel->index();
+
   assert(index == kAdded || index == kDeleted);
+
   size_t n = channels_.erase(fd);
   (void)n;
   assert(n == 1);
@@ -166,18 +194,25 @@ void EPollPoller::removeChannel(Channel* channel)
   {
     update(EPOLL_CTL_DEL, channel);
   }
+
   channel->set_index(kNew);
 }
 
 void EPollPoller::update(int operation, Channel* channel)
 {
+  // zhou: when operation == EPOLL_CTL_DEL, the event will be ingored.
   struct epoll_event event;
   memZero(&event, sizeof event);
+
   event.events = channel->events();
+  // zhou: user context
   event.data.ptr = channel;
+
   int fd = channel->fd();
+
   LOG_TRACE << "epoll_ctl op = " << operationToString(operation)
     << " fd = " << fd << " event = { " << channel->eventsToString() << " }";
+
   if (::epoll_ctl(epollfd_, operation, fd, &event) < 0)
   {
     if (operation == EPOLL_CTL_DEL)

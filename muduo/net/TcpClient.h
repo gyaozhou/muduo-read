@@ -22,6 +22,7 @@ namespace net
 class Connector;
 typedef std::shared_ptr<Connector> ConnectorPtr;
 
+// zhou: README,
 class TcpClient : noncopyable
 {
  public:
@@ -71,11 +72,16 @@ class TcpClient : noncopyable
   void removeConnection(const TcpConnectionPtr& conn);
 
   EventLoop* loop_;
+
   ConnectorPtr connector_; // avoid revealing Connector
   const string name_;
+
+  // zhou: register callback function to handle connect successful event.
   ConnectionCallback connectionCallback_;
+  // zhou: register callback function to handle received message
   MessageCallback messageCallback_;
   WriteCompleteCallback writeCompleteCallback_;
+
   bool retry_;   // atomic
   bool connect_; // atomic
   // always in loop thread

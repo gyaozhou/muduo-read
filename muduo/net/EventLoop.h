@@ -28,9 +28,13 @@ namespace muduo
 namespace net
 {
 
+// zhou: only used to define pointer, and forward declaration.
+//       By this way to avoid includes their header files.
 class Channel;
 class Poller;
 class TimerQueue;
+
+// zhou: the thread which created EventLoop, is IO thread. Its lifttime is forever.
 
 ///
 /// Reactor, at most one per thread.
@@ -38,7 +42,8 @@ class TimerQueue;
 /// This is an interface class, so don't expose too much details.
 class EventLoop : noncopyable
 {
- public:
+public:
+  // zhou: could be used to refer to any callable object
   typedef std::function<void()> Functor;
 
   EventLoop();
@@ -113,7 +118,10 @@ class EventLoop : noncopyable
       abortNotInLoopThread();
     }
   }
+
+  // zhou:
   bool isInLoopThread() const { return threadId_ == CurrentThread::tid(); }
+
   // bool callingPendingFunctors() const { return callingPendingFunctors_; }
   bool eventHandling() const { return eventHandling_; }
 
@@ -135,28 +143,50 @@ class EventLoop : noncopyable
 
   void printActiveChannels() const; // DEBUG
 
+  // zhou: socket handler list.
   typedef std::vector<Channel*> ChannelList;
 
   bool looping_; /* atomic */
   std::atomic<bool> quit_;
+  // zhou: flag for handle channel event.
   bool eventHandling_; /* atomic */
+  // zhou: flag for handle Task Queue.
+  //       only be evaluated in EvenLoop owner thread. So it is safe to use
+  //       normal bool type. Otherwise, we have to use std::atomic<bool>.
   bool callingPendingFunctors_; /* atomic */
+
   int64_t iteration_;
+  // zhou: ??? used for
   const pid_t threadId_;
   Timestamp pollReturnTime_;
+
   std::unique_ptr<Poller> poller_;
+
   std::unique_ptr<TimerQueue> timerQueue_;
+
+  // zhou: used to wait up a EventLoop which is blocked, from another thread.
   int wakeupFd_;
+
+  // zhou: this channel init depends on "wakeupFd_", so must be after it.
   // unlike in TimerQueue, which is an internal class,
   // we don't expose Channel to client.
   std::unique_ptr<Channel> wakeupChannel_;
+
+  // zhou: used to refer to any type of object.
   boost::any context_;
 
+  // zhou: socket handler list
   // scratch variables
   ChannelList activeChannels_;
+
+  // zhou: just avoid remove channel which is processing.
   Channel* currentActiveChannel_;
 
+  // zhou: used to protect "pendingFunctors_"
   mutable MutexLock mutex_;
+  // zhou: Task list, could be queued from other EventLoop.
+  //       GUARDED_BY(mutex_), Promise the member will be protected by "mutext_".
+  //       Once broken, it will be detected by Clang.
   std::vector<Functor> pendingFunctors_ GUARDED_BY(mutex_);
 };
 

@@ -72,7 +72,9 @@ void resetTimerfd(int timerfd, Timestamp expiration)
   struct itimerspec oldValue;
   memZero(&newValue, sizeof newValue);
   memZero(&oldValue, sizeof oldValue);
+
   newValue.it_value = howMuchTimeFromNow(expiration);
+
   int ret = ::timerfd_settime(timerfd, 0, &newValue, &oldValue);
   if (ret)
   {
@@ -83,6 +85,9 @@ void resetTimerfd(int timerfd, Timestamp expiration)
 }  // namespace detail
 }  // namespace net
 }  // namespace muduo
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 using namespace muduo;
 using namespace muduo::net;
@@ -97,6 +102,7 @@ TimerQueue::TimerQueue(EventLoop* loop)
 {
   timerfdChannel_.setReadCallback(
       std::bind(&TimerQueue::handleRead, this));
+
   // we are always reading the timerfd, we disarm it with timerfd_settime.
   timerfdChannel_.enableReading();
 }
@@ -113,13 +119,20 @@ TimerQueue::~TimerQueue()
   }
 }
 
+// zhou: create a Task, append to EventLoop Task Queue. In case the timer is
+//       closed to now. It may expired before executed.
 TimerId TimerQueue::addTimer(TimerCallback cb,
                              Timestamp when,
                              double interval)
 {
   Timer* timer = new Timer(std::move(cb), when, interval);
+
+  // zhou: EventLoop::runInLoop, required a functor "void()".
+  //       The ownership of "timer" is transferred to functor.
+  //       And move to "timers" finally.
   loop_->runInLoop(
       std::bind(&TimerQueue::addTimerInLoop, this, timer));
+
   return TimerId(timer, timer->sequence());
 }
 
@@ -129,9 +142,11 @@ void TimerQueue::cancel(TimerId timerId)
       std::bind(&TimerQueue::cancelInLoop, this, timerId));
 }
 
+// zhou: due to std::bind(), this function will be invoked from EventLoop.
 void TimerQueue::addTimerInLoop(Timer* timer)
 {
   loop_->assertInLoopThread();
+
   bool earliestChanged = insert(timer);
 
   if (earliestChanged)
@@ -144,6 +159,7 @@ void TimerQueue::cancelInLoop(TimerId timerId)
 {
   loop_->assertInLoopThread();
   assert(timers_.size() == activeTimers_.size());
+
   ActiveTimer timer(timerId.timer_, timerId.sequence_);
   ActiveTimerSet::iterator it = activeTimers_.find(timer);
   if (it != activeTimers_.end())
@@ -160,12 +176,17 @@ void TimerQueue::cancelInLoop(TimerId timerId)
   assert(timers_.size() == activeTimers_.size());
 }
 
+
 void TimerQueue::handleRead()
 {
   loop_->assertInLoopThread();
+
   Timestamp now(Timestamp::now());
+
+  // zhou: don't care about what we read from "timerfd_"
   readTimerfd(timerfd_, now);
 
+  // zhou: may more than one timer expired.
   std::vector<Entry> expired = getExpired(now);
 
   callingExpiredTimers_ = true;
@@ -173,6 +194,8 @@ void TimerQueue::handleRead()
   // safe to callback outside critical section
   for (const Entry& it : expired)
   {
+    // zhou: "typedef std::pair<Timestamp, Timer*> Entry;", invoke callback
+    //       one by one.
     it.second->run();
   }
   callingExpiredTimers_ = false;
@@ -180,6 +203,7 @@ void TimerQueue::handleRead()
   reset(expired, now);
 }
 
+// zhou: README,
 std::vector<TimerQueue::Entry> TimerQueue::getExpired(Timestamp now)
 {
   assert(timers_.size() == activeTimers_.size());
@@ -198,6 +222,9 @@ std::vector<TimerQueue::Entry> TimerQueue::getExpired(Timestamp now)
   }
 
   assert(timers_.size() == activeTimers_.size());
+
+  // zhou: RVO will secure the performance, similar with std::move() but better
+  //       in this case.
   return expired;
 }
 
@@ -236,25 +263,31 @@ bool TimerQueue::insert(Timer* timer)
 {
   loop_->assertInLoopThread();
   assert(timers_.size() == activeTimers_.size());
+
   bool earliestChanged = false;
+
   Timestamp when = timer->expiration();
   TimerList::iterator it = timers_.begin();
   if (it == timers_.end() || when < it->first)
   {
+    // zhou: the first expired timer changed.
     earliestChanged = true;
   }
+
   {
     std::pair<TimerList::iterator, bool> result
       = timers_.insert(Entry(when, timer));
+
     assert(result.second); (void)result;
   }
+
   {
     std::pair<ActiveTimerSet::iterator, bool> result
       = activeTimers_.insert(ActiveTimer(timer, timer->sequence()));
+
     assert(result.second); (void)result;
   }
 
   assert(timers_.size() == activeTimers_.size());
   return earliestChanged;
 }
-

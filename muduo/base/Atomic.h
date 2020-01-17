@@ -15,6 +15,7 @@ namespace muduo
 
 namespace detail
 {
+// zhou: could be replaced by C++11 std::atomic<int>
 template<typename T>
 class AtomicIntegerT : noncopyable
 {
@@ -89,6 +90,7 @@ class AtomicIntegerT : noncopyable
 };
 }  // namespace detail
 
+// zhou: std::atomic<int> AtomicInt32
 typedef detail::AtomicIntegerT<int32_t> AtomicInt32;
 typedef detail::AtomicIntegerT<int64_t> AtomicInt64;
 

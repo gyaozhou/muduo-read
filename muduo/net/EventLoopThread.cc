@@ -17,6 +17,7 @@ EventLoopThread::EventLoopThread(const ThreadInitCallback& cb,
                                  const string& name)
   : loop_(NULL),
     exiting_(false),
+    // zhou: the class member could use "this" object, design pattern.
     thread_(std::bind(&EventLoopThread::threadFunc, this), name),
     mutex_(),
     cond_(mutex_),
@@ -36,11 +37,16 @@ EventLoopThread::~EventLoopThread()
   }
 }
 
+// zhou: public API
 EventLoop* EventLoopThread::startLoop()
 {
   assert(!thread_.started());
+
+  // zhou: this function will return when new thread started,
+  //       which runs "EventLoopThread::threadFunc()"
   thread_.start();
 
+  // zhou: wait for EventLoop set up in new thread.
   EventLoop* loop = NULL;
   {
     MutexLockGuard lock(mutex_);
@@ -54,12 +60,15 @@ EventLoop* EventLoopThread::startLoop()
   return loop;
 }
 
+// zhou: private main function of "thread_"
 void EventLoopThread::threadFunc()
 {
   EventLoop loop;
 
+  // zhou: when not actual function providered, it will be false.
   if (callback_)
   {
+    // zhou: init EventLoop
     callback_(&loop);
   }
 
@@ -69,9 +78,10 @@ void EventLoopThread::threadFunc()
     cond_.notify();
   }
 
+  // zhou: work here forever.
   loop.loop();
+
   //assert(exiting_);
   MutexLockGuard lock(mutex_);
   loop_ = NULL;
 }
-

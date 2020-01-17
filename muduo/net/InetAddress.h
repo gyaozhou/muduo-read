@@ -25,6 +25,8 @@ namespace sockets
 const struct sockaddr* sockaddr_cast(const struct sockaddr_in6* addr);
 }
 
+// zhou: POD, Plain Old Data
+
 ///
 /// Wrapper of sockaddr_in.
 ///
@@ -32,6 +34,7 @@ const struct sockaddr* sockaddr_cast(const struct sockaddr_in6* addr);
 class InetAddress : public muduo::copyable
 {
  public:
+  // zhou: keyword "explicit", don't want this type be used by accident.
   /// Constructs an endpoint with given port number.
   /// Mostly used in TcpServer listening.
   explicit InetAddress(uint16_t port = 0, bool loopbackOnly = false, bool ipv6 = false);
@@ -73,6 +76,7 @@ class InetAddress : public muduo::copyable
   void setScopeId(uint32_t scope_id);
 
  private:
+  // zhou: no problem to have private data in POD, but can't both public and private.
   union
   {
     struct sockaddr_in addr_;

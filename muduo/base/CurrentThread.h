@@ -17,10 +17,12 @@ namespace CurrentThread
   extern __thread char t_tidString[32];
   extern __thread int t_tidStringLength;
   extern __thread const char* t_threadName;
+
   void cacheTid();
 
   inline int tid()
   {
+    // zhou: same as "if (unlikely(t_cachedTid == 0))"
     if (__builtin_expect(t_cachedTid == 0, 0))
     {
       cacheTid();
@@ -48,6 +50,7 @@ namespace CurrentThread
   void sleepUsec(int64_t usec);  // for testing
 
   string stackTrace(bool demangle);
+
 }  // namespace CurrentThread
 }  // namespace muduo
 

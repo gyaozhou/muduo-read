@@ -24,14 +24,20 @@
 using namespace muduo;
 using namespace muduo::net;
 
+// zhou: anomynous namespace, used to replace static variable and fucntions.
+//       All functions and variable are file local visibility.
 namespace
 {
+// zhou: refer to the EventLoop object within this thread.
+//       Only one EventLoop object can be created.
 __thread EventLoop* t_loopInThisThread = 0;
 
+// zhou: block for no more than 10s.
 const int kPollTimeMs = 10000;
 
 int createEventfd()
 {
+  // zhou: when refer to global namespace.
   int evtfd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
   if (evtfd < 0)
   {
@@ -56,11 +62,15 @@ class IgnoreSigPipe
 IgnoreSigPipe initObj;
 }  // namespace
 
+
+////////////////////////////////////////////////////////////////////////////////
+
 EventLoop* EventLoop::getEventLoopOfCurrentThread()
 {
   return t_loopInThisThread;
 }
 
+// zhou: EventLoop is way to manage Task Queue, scheduler framework.
 EventLoop::EventLoop()
   : looping_(false),
     quit_(false),
@@ -75,6 +85,8 @@ EventLoop::EventLoop()
     currentActiveChannel_(NULL)
 {
   LOG_DEBUG << "EventLoop created " << this << " in thread " << threadId_;
+
+  // zhou: make sure only one EventLoop will be created for each thread.
   if (t_loopInThisThread)
   {
     LOG_FATAL << "Another EventLoop " << t_loopInThisThread
@@ -84,8 +96,10 @@ EventLoop::EventLoop()
   {
     t_loopInThisThread = this;
   }
+
   wakeupChannel_->setReadCallback(
       std::bind(&EventLoop::handleRead, this));
+
   // we are always reading the wakeupfd
   wakeupChannel_->enableReading();
 }
@@ -100,23 +114,33 @@ EventLoop::~EventLoop()
   t_loopInThisThread = NULL;
 }
 
+// zhou: not busy loop, but will run forever.
 void EventLoop::loop()
 {
+  // zhou: prevent from recursive invoking loop().
   assert(!looping_);
+
+  // zhou: must run in same thread as creation of the object.
   assertInLoopThread();
+
   looping_ = true;
   quit_ = false;  // FIXME: what if someone calls quit() before loop() ?
+
   LOG_TRACE << "EventLoop " << this << " start looping";
 
   while (!quit_)
   {
     activeChannels_.clear();
+
+    // zhou: use "::timerfd_create()" to manage timer, "kPollTimeMs" do nothing.
     pollReturnTime_ = poller_->poll(kPollTimeMs, &activeChannels_);
+
     ++iteration_;
     if (Logger::logLevel() <= Logger::TRACE)
     {
       printActiveChannels();
     }
+
     // TODO sort channel by priority
     eventHandling_ = true;
     for (Channel* channel : activeChannels_)
@@ -126,6 +150,8 @@ void EventLoop::loop()
     }
     currentActiveChannel_ = NULL;
     eventHandling_ = false;
+
+    // zhou: handle Task Queue
     doPendingFunctors();
   }
 
@@ -145,6 +171,10 @@ void EventLoop::quit()
   }
 }
 
+// zhou: "Runs callback immediately in the loop thread.
+//        It wakes up the loop, and run the cb.
+//        If in the same loop thread, cb is run within the function.
+//        Safe to call from other threads."
 void EventLoop::runInLoop(Functor cb)
 {
   if (isInLoopThread())
@@ -157,13 +187,19 @@ void EventLoop::runInLoop(Functor cb)
   }
 }
 
+// zhou: "Queues callback in the loop thread. Runs after finish pooling.
+//        Safe to call from other threads."
 void EventLoop::queueInLoop(Functor cb)
 {
   {
   MutexLockGuard lock(mutex_);
+  // zhou: 'cb' is normally a Functor object returned by std::bind().
+  //       In order to avoid Copy Ctor, using Move Ctor.
   pendingFunctors_.push_back(std::move(cb));
   }
 
+  // zhou: "callingPendingFunctors_" will only be evaluted when
+  //        "isInLoopThread()" is true which means in EventLoop thread.
   if (!isInLoopThread() || callingPendingFunctors_)
   {
     wakeup();
@@ -176,6 +212,8 @@ size_t EventLoop::queueSize() const
   return pendingFunctors_.size();
 }
 
+// zhou: why there is no user context within TimerCallback?
+//       Because std::bind may already set it.
 TimerId EventLoop::runAt(Timestamp time, TimerCallback cb)
 {
   return timerQueue_->addTimer(std::move(cb), time, 0.0);
@@ -202,6 +240,7 @@ void EventLoop::updateChannel(Channel* channel)
 {
   assert(channel->ownerLoop() == this);
   assertInLoopThread();
+
   poller_->updateChannel(channel);
 }
 
@@ -209,11 +248,15 @@ void EventLoop::removeChannel(Channel* channel)
 {
   assert(channel->ownerLoop() == this);
   assertInLoopThread();
+
   if (eventHandling_)
   {
+    // zhou: can NOT remove channel when handling it.
     assert(currentActiveChannel_ == channel ||
         std::find(activeChannels_.begin(), activeChannels_.end(), channel) == activeChannels_.end());
   }
+
+  // zhou: remove from epoll.
   poller_->removeChannel(channel);
 }
 
@@ -221,6 +264,7 @@ bool EventLoop::hasChannel(Channel* channel)
 {
   assert(channel->ownerLoop() == this);
   assertInLoopThread();
+
   return poller_->hasChannel(channel);
 }
 
@@ -231,19 +275,25 @@ void EventLoop::abortNotInLoopThread()
             << ", current thread id = " <<  CurrentThread::tid();
 }
 
+// zhou: each time wakeup() invoked, will +1 eventfd internal counter.
+//
 void EventLoop::wakeup()
 {
   uint64_t one = 1;
   ssize_t n = sockets::write(wakeupFd_, &one, sizeof one);
+
   if (n != sizeof one)
   {
     LOG_ERROR << "EventLoop::wakeup() writes " << n << " bytes instead of 8";
   }
 }
 
+// zhou: handle read event (wake up here)
 void EventLoop::handleRead()
 {
   uint64_t one = 1;
+
+  // zhou: one will be changed.
   ssize_t n = sockets::read(wakeupFd_, &one, sizeof one);
   if (n != sizeof one)
   {
@@ -251,16 +301,21 @@ void EventLoop::handleRead()
   }
 }
 
+// zhou: handle Task Queue.
 void EventLoop::doPendingFunctors()
 {
   std::vector<Functor> functors;
   callingPendingFunctors_ = true;
 
   {
-  MutexLockGuard lock(mutex_);
-  functors.swap(pendingFunctors_);
+    // zhou: move all pending tasks to new temp vector "functors".
+    //       By this way, to make the race condition as small as possible.
+    MutexLockGuard lock(mutex_);
+    functors.swap(pendingFunctors_);
   }
 
+  // zhou: should limit time spending on the Task Queue. Otherwise, may cause
+  //       high priority events from channel lost.
   for (const Functor& functor : functors)
   {
     functor();
@@ -275,4 +330,3 @@ void EventLoop::printActiveChannels() const
     LOG_TRACE << "{" << channel->reventsToString() << "} ";
   }
 }
-

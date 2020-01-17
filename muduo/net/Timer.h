@@ -20,12 +20,14 @@ namespace muduo
 namespace net
 {
 
+// zhou: just used to describe a Timer parameters.
 ///
 /// Internal class for timer event.
 ///
 class Timer : noncopyable
 {
  public:
+  // zhou: "typedef std::function<void()> TimerCallback;"
   Timer(TimerCallback cb, Timestamp when, double interval)
     : callback_(std::move(cb)),
       expiration_(when),
@@ -54,6 +56,8 @@ class Timer : noncopyable
   const bool repeat_;
   const int64_t sequence_;
 
+  // zhou: static member variable, must be defined and init outside of class definition.
+  //       used to get timer ID, unique globally.
   static AtomicInt64 s_numCreated_;
 };
 

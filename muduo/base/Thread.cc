@@ -20,6 +20,8 @@
 
 namespace muduo
 {
+
+// zhou: namespace detail means they are anonymous to outside of this file.
 namespace detail
 {
 
@@ -43,15 +45,18 @@ class ThreadNameInitializer
   {
     muduo::CurrentThread::t_threadName = "main";
     CurrentThread::tid();
+    // zhou: don't forget clean thread local value.
     pthread_atfork(NULL, NULL, &afterFork);
   }
 };
 
+// zhou: global variable, init when main thread start.
 ThreadNameInitializer init;
 
 struct ThreadData
 {
   typedef muduo::Thread::ThreadFunc ThreadFunc;
+
   ThreadFunc func_;
   string name_;
   pid_t* tid_;
@@ -67,18 +72,27 @@ struct ThreadData
       latch_(latch)
   { }
 
+  // zhou: the second function executed by new thread, loop function.
   void runInThread()
   {
     *tid_ = muduo::CurrentThread::tid();
+
+    // zhou: why give up pointer, avoid to make mistake.
     tid_ = NULL;
     latch_->countDown();
     latch_ = NULL;
 
     muduo::CurrentThread::t_threadName = name_.empty() ? "muduoThread" : name_.c_str();
+
+    // zhou: set or get attributes of a process.
     ::prctl(PR_SET_NAME, muduo::CurrentThread::t_threadName);
+
     try
     {
+      // zhou: entry function of this thread.
       func_();
+
+      // zhou: when completed without exception, mark as "finished"
       muduo::CurrentThread::t_threadName = "finished";
     }
     catch (const Exception& ex)
@@ -105,6 +119,7 @@ struct ThreadData
   }
 };
 
+// zhou: the first function executed by new thread.
 void* startThread(void* obj)
 {
   ThreadData* data = static_cast<ThreadData*>(obj);
@@ -115,6 +130,9 @@ void* startThread(void* obj)
 
 }  // namespace detail
 
+// zhou: all below covered by namespace muduo
+
+// zhou: CurrentThread is namespace
 void CurrentThread::cacheTid()
 {
   if (t_cachedTid == 0)
@@ -139,6 +157,10 @@ void CurrentThread::sleepUsec(int64_t usec)
 
 AtomicInt32 Thread::numCreated_;
 
+
+////////////////////////////////////////////////////////////////////////////////
+
+// zhou: this class could be replaced with std::thread?
 Thread::Thread(ThreadFunc func, const string& n)
   : started_(false),
     joined_(false),
@@ -162,6 +184,8 @@ Thread::~Thread()
 void Thread::setDefaultName()
 {
   int num = numCreated_.incrementAndGet();
+
+  // zhou: once user doesn't not provide thread name, use a unique and sequence.
   if (name_.empty())
   {
     char buf[32];
@@ -174,6 +198,7 @@ void Thread::start()
 {
   assert(!started_);
   started_ = true;
+
   // FIXME: move(func_)
   detail::ThreadData* data = new detail::ThreadData(func_, name_, &tid_, &latch_);
   if (pthread_create(&pthreadId_, NULL, &detail::startThread, data))
@@ -184,6 +209,7 @@ void Thread::start()
   }
   else
   {
+    // zhou: wait for thread started, and set "tid_" success.
     latch_.wait();
     assert(tid_ > 0);
   }

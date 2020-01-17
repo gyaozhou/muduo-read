@@ -19,6 +19,7 @@ __thread int t_tidStringLength = 6;
 __thread const char* t_threadName = "unknown";
 static_assert(std::is_same<int, pid_t>::value, "pid_t should be int");
 
+// zhou: collect backtrace by self.
 string stackTrace(bool demangle)
 {
   string stack;

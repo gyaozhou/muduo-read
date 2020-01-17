@@ -63,6 +63,8 @@ class Timestamp : public muduo::copyable,
   /// Get time of now.
   ///
   static Timestamp now();
+
+  // zhou: return a invalid timestamp
   static Timestamp invalid()
   {
     return Timestamp();
@@ -84,6 +86,8 @@ class Timestamp : public muduo::copyable,
   int64_t microSecondsSinceEpoch_;
 };
 
+// zhou: overload operator for not member function.
+//       Required by boost::less_than_comparable<Timestamp>, C++11 implemented also.
 inline bool operator<(Timestamp lhs, Timestamp rhs)
 {
   return lhs.microSecondsSinceEpoch() < rhs.microSecondsSinceEpoch();

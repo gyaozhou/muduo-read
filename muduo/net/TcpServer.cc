@@ -68,6 +68,7 @@ void TcpServer::start()
   }
 }
 
+// zhou: callback for Acceptor.
 void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr)
 {
   loop_->assertInLoopThread();
@@ -80,7 +81,9 @@ void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr)
   LOG_INFO << "TcpServer::newConnection [" << name_
            << "] - new connection [" << connName
            << "] from " << peerAddr.toIpPort();
+
   InetAddress localAddr(sockets::getLocalAddr(sockfd));
+
   // FIXME poll with zero timeout to double confirm the new connection
   // FIXME use make_shared if necessary
   TcpConnectionPtr conn(new TcpConnection(ioLoop,
@@ -88,12 +91,16 @@ void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr)
                                           sockfd,
                                           localAddr,
                                           peerAddr));
+
+  // zhou: the connection name also set in TcpConnection object.
   connections_[connName] = conn;
+
   conn->setConnectionCallback(connectionCallback_);
   conn->setMessageCallback(messageCallback_);
   conn->setWriteCompleteCallback(writeCompleteCallback_);
   conn->setCloseCallback(
       std::bind(&TcpServer::removeConnection, this, _1)); // FIXME: unsafe
+
   ioLoop->runInLoop(std::bind(&TcpConnection::connectEstablished, conn));
 }
 
@@ -115,4 +122,3 @@ void TcpServer::removeConnectionInLoop(const TcpConnectionPtr& conn)
   ioLoop->queueInLoop(
       std::bind(&TcpConnection::connectDestroyed, conn));
 }
-

@@ -27,6 +27,7 @@ namespace net
 class EventLoop;
 class EventLoopThread;
 
+// zhou: EventLoopThreadPool, is a resource manager.
 class EventLoopThreadPool : noncopyable
 {
  public:
@@ -34,6 +35,7 @@ class EventLoopThreadPool : noncopyable
 
   EventLoopThreadPool(EventLoop* baseLoop, const string& nameArg);
   ~EventLoopThreadPool();
+
   void setThreadNum(int numThreads) { numThreads_ = numThreads; }
   void start(const ThreadInitCallback& cb = ThreadInitCallback());
 

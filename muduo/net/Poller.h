@@ -24,6 +24,8 @@ namespace net
 
 class Channel;
 
+// zhou: traditional way, this is the abstract class.
+
 ///
 /// Base class for IO Multiplexing
 ///
@@ -58,7 +60,10 @@ class Poller : noncopyable
   }
 
  protected:
+  // zhou: key is fd
   typedef std::map<int, Channel*> ChannelMap;
+
+  // zhou: all channel related with this epoll, key is fd.
   ChannelMap channels_;
 
  private:

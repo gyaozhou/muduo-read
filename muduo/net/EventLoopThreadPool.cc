@@ -30,6 +30,8 @@ EventLoopThreadPool::~EventLoopThreadPool()
   // Don't delete loop, it's stack variable
 }
 
+// zhou: create a thread pool, the major purpose is get EventLoop objects
+//       in each thread. Then we can operate threads' working via it.
 void EventLoopThreadPool::start(const ThreadInitCallback& cb)
 {
   assert(!started_);
@@ -41,19 +43,27 @@ void EventLoopThreadPool::start(const ThreadInitCallback& cb)
   {
     char buf[name_.size() + 32];
     snprintf(buf, sizeof buf, "%s%d", name_.c_str(), i);
+
     EventLoopThread* t = new EventLoopThread(cb, buf);
     threads_.push_back(std::unique_ptr<EventLoopThread>(t));
+
+    // zhou: manage EventLoop within each thread.
     loops_.push_back(t->startLoop());
   }
+
+  // zhou: if no new thread created, the main thread will be the default worker.
   if (numThreads_ == 0 && cb)
   {
     cb(baseLoop_);
   }
 }
 
+// zhou: round robin way to select EventLoop from EventLoopThreadPool
 EventLoop* EventLoopThreadPool::getNextLoop()
 {
+  // zhou: this function could only be executed in "baseLoop_" (main thread).
   baseLoop_->assertInLoopThread();
+
   assert(started_);
   EventLoop* loop = baseLoop_;
 

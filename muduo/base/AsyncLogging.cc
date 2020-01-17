@@ -11,6 +11,7 @@
 
 using namespace muduo;
 
+// zhou: README,
 AsyncLogging::AsyncLogging(const string& basename,
                            off_t rollSize,
                            int flushInterval)
@@ -133,4 +134,3 @@ void AsyncLogging::threadFunc()
   }
   output.flush();
 }
-

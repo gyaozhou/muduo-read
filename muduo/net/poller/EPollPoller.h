@@ -46,7 +46,9 @@ class EPollPoller : public Poller
 
   typedef std::vector<struct epoll_event> EventList;
 
+  // zhou: epoll_create1().
   int epollfd_;
+  // zhou: resource used to collect what happened in epoll_wait().
   EventList events_;
 };
 

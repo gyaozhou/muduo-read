@@ -56,6 +56,7 @@ class TimerQueue : noncopyable
   // so that we can find an T* in a set<unique_ptr<T>>.
   typedef std::pair<Timestamp, Timer*> Entry;
   typedef std::set<Entry> TimerList;
+
   typedef std::pair<Timer*, int64_t> ActiveTimer;
   typedef std::set<ActiveTimer> ActiveTimerSet;
 
@@ -72,6 +73,7 @@ class TimerQueue : noncopyable
   EventLoop* loop_;
   const int timerfd_;
   Channel timerfdChannel_;
+
   // Timer list sorted by expiration
   TimerList timers_;
 

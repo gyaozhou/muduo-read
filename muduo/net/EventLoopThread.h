@@ -22,14 +22,20 @@ namespace net
 
 class EventLoop;
 
+// zhou: create a new EventLoop running within a new created Thread.
 class EventLoopThread : noncopyable
 {
  public:
   typedef std::function<void(EventLoop*)> ThreadInitCallback;
 
+  // zhou: ThreadInitCallback() is a object without any function.
+  //       Its value is false and can not be invoked, otherwise "std::bad_function_call".
+  //
+  //       Only init function (optional) and thread name (optional) are needed.
   EventLoopThread(const ThreadInitCallback& cb = ThreadInitCallback(),
                   const string& name = string());
   ~EventLoopThread();
+
   EventLoop* startLoop();
 
  private:
@@ -37,9 +43,12 @@ class EventLoopThread : noncopyable
 
   EventLoop* loop_ GUARDED_BY(mutex_);
   bool exiting_;
+  // zhou: without init value, doesn't mean it will be init with default ctor.
   Thread thread_;
   MutexLock mutex_;
   Condition cond_ GUARDED_BY(mutex_);
+
+  // zhou: optional provided by client, to perform init task in new thread.
   ThreadInitCallback callback_;
 };
 
@@ -47,4 +56,3 @@ class EventLoopThread : noncopyable
 }  // namespace muduo
 
 #endif  // MUDUO_NET_EVENTLOOPTHREAD_H
-

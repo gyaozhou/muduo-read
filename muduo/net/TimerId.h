@@ -26,6 +26,7 @@ class Timer;
 class TimerId : public muduo::copyable
 {
  public:
+  // zhou: use 0 for invalid TimerId?
   TimerId()
     : timer_(NULL),
       sequence_(0)

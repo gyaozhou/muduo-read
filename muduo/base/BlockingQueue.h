@@ -15,6 +15,7 @@
 namespace muduo
 {
 
+// zhou: README,
 template<typename T>
 class BlockingQueue : noncopyable
 {

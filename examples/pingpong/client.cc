@@ -16,6 +16,7 @@ using namespace muduo::net;
 
 class Client;
 
+// zhou: each session represents a TCP connection, it belongs to one client.
 class Session : noncopyable
 {
  public:
@@ -31,6 +32,7 @@ class Session : noncopyable
   {
     client_.setConnectionCallback(
         std::bind(&Session::onConnection, this, _1));
+
     client_.setMessageCallback(
         std::bind(&Session::onMessage, this, _1, _2, _3));
   }
@@ -64,6 +66,8 @@ class Session : noncopyable
     ++messagesRead_;
     bytesRead_ += buf->readableBytes();
     bytesWritten_ += buf->readableBytes();
+
+    // zhou: reflect the received message
     conn->send(buf);
   }
 
@@ -74,6 +78,8 @@ class Session : noncopyable
   int64_t messagesRead_;
 };
 
+
+// zhou: one client could own several sessions.
 class Client : noncopyable
 {
  public:
@@ -88,13 +94,23 @@ class Client : noncopyable
       sessionCount_(sessionCount),
       timeout_(timeout)
   {
+    // zhou: fn require type, "typedef std::function<void()> TimerCallback".
+    //
+    //       This is a standard way to bind a member function.
+    //       It's safe to use this object pointer "this", since loop is a member
+    //       of Client.
     loop->runAfter(timeout, std::bind(&Client::handleTimeout, this));
+
+    // zhou: why not ">= 1", if only 1 thread specified by client, the main thread will
+    //       be worker. If more than 1 thread specified by client, the main thread will
+    //       be admin, other n threads will be created as worker.
     if (threadCount > 1)
     {
       threadPool_.setThreadNum(threadCount);
     }
     threadPool_.start();
 
+    // zhou: prepare message content
     for (int i = 0; i < blockSize; ++i)
     {
       message_.push_back(static_cast<char>(i % 128));
@@ -104,8 +120,12 @@ class Client : noncopyable
     {
       char buf[32];
       snprintf(buf, sizeof buf, "C%05d", i);
+
+      // zhou: assign sessions to different threads in RR.
       Session* session = new Session(threadPool_.getNextLoop(), serverAddr, buf, this);
+
       session->start();
+
       sessions_.emplace_back(session);
     }
   }
@@ -142,17 +162,20 @@ class Client : noncopyable
                << " average message size";
       LOG_WARN << static_cast<double>(totalBytesRead) / (timeout_ * 1024 * 1024)
                << " MiB/s throughput";
+
       conn->getLoop()->queueInLoop(std::bind(&Client::quit, this));
     }
   }
 
  private:
 
+  // zhou: when all sessions disconnected, quit loop.
   void quit()
   {
     loop_->queueInLoop(std::bind(&EventLoop::quit, loop_));
   }
 
+  // zhou: how long this client will work, specified by client.
   void handleTimeout()
   {
     LOG_WARN << "stop";
@@ -162,21 +185,29 @@ class Client : noncopyable
     }
   }
 
+  // zhou: EventLoop is way to manage Task Queue, scheduler framework.
+  //       EventLoopThreadPool, is a resource manager.
   EventLoop* loop_;
   EventLoopThreadPool threadPool_;
+
   int sessionCount_;
   int timeout_;
+
   std::vector<std::unique_ptr<Session>> sessions_;
+
   string message_;
   AtomicInt32 numConnected_;
 };
 
+// zhou: TcpClient callback
 void Session::onConnection(const TcpConnectionPtr& conn)
 {
   if (conn->connected())
   {
     conn->setTcpNoDelay(true);
+
     conn->send(owner_->message());
+
     owner_->onConnect();
   }
   else
@@ -208,7 +239,7 @@ int main(int argc, char* argv[])
     InetAddress serverAddr(ip, port);
 
     Client client(&loop, serverAddr, blockSize, sessionCount, timeout, threadCount);
+
     loop.loop();
   }
 }
-

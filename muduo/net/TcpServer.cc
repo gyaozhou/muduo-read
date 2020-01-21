@@ -63,12 +63,14 @@ void TcpServer::start()
     threadPool_->start(threadInitCallback_);
 
     assert(!acceptor_->listenning());
+    // zhou: put in defer queue, start listen().
+    //       Acceptor::listen() doesn't need a unique_ptr.
     loop_->runInLoop(
         std::bind(&Acceptor::listen, get_pointer(acceptor_)));
   }
 }
 
-// zhou: callback for Acceptor.
+// zhou: callback for Acceptor/accept(), registered in TcpServer Ctor.
 void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr)
 {
   loop_->assertInLoopThread();
@@ -98,18 +100,23 @@ void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr)
   conn->setConnectionCallback(connectionCallback_);
   conn->setMessageCallback(messageCallback_);
   conn->setWriteCompleteCallback(writeCompleteCallback_);
+
+  // zhou: "std::bind()" here, will make extend the life of TcpConnection via
+  //       TcpConnectionPtr which is a shared_ptr.
   conn->setCloseCallback(
       std::bind(&TcpServer::removeConnection, this, _1)); // FIXME: unsafe
 
   ioLoop->runInLoop(std::bind(&TcpConnection::connectEstablished, conn));
 }
 
+// zhou: thread safe
 void TcpServer::removeConnection(const TcpConnectionPtr& conn)
 {
   // FIXME: unsafe
   loop_->runInLoop(std::bind(&TcpServer::removeConnectionInLoop, this, conn));
 }
 
+// zhou; must be run in the EventLoop
 void TcpServer::removeConnectionInLoop(const TcpConnectionPtr& conn)
 {
   loop_->assertInLoopThread();
@@ -118,6 +125,7 @@ void TcpServer::removeConnectionInLoop(const TcpConnectionPtr& conn)
   size_t n = connections_.erase(conn->name());
   (void)n;
   assert(n == 1);
+
   EventLoop* ioLoop = conn->getLoop();
   ioLoop->queueInLoop(
       std::bind(&TcpConnection::connectDestroyed, conn));

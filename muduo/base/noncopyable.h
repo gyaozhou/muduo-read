@@ -4,6 +4,8 @@
 namespace muduo
 {
 
+// zhou: compare to "class copyable", any derived class of copyable should be a
+//       object type.
 class noncopyable
 {
  public:

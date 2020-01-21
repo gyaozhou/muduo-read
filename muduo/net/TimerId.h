@@ -20,6 +20,9 @@ namespace net
 
 class Timer;
 
+// zhou: copyable, work like a std::weak_ptr<Timer>, have to check TimerQueue and
+//       make sure "timer_" is still valid before use it.
+
 ///
 /// An opaque identifier, for canceling Timer.
 ///
@@ -38,6 +41,8 @@ class TimerId : public muduo::copyable
       sequence_(seq)
   {
   }
+
+  // zhou: we want a default copy-ctor and assignment-ctor.
 
   // default copy-ctor, dtor and assignment are okay
 

@@ -17,6 +17,9 @@ namespace muduo
 {
 namespace net
 {
+
+  // zhou: "sockets" is NOT a class, just a namespace.
+  //       Class always use Capitalization.
 namespace sockets
 {
 

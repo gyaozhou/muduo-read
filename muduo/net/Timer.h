@@ -20,7 +20,8 @@ namespace muduo
 namespace net
 {
 
-// zhou: just used to describe a Timer parameters.
+// zhou: not only describe a Timer parameters, but also can handle the repeat.
+
 ///
 /// Internal class for timer event.
 ///

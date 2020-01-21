@@ -25,6 +25,7 @@ using std::placeholders::_3;
 
 // should really belong to base/Types.h, but <memory> is not included there.
 
+// zhou:
 template<typename T>
 inline T* get_pointer(const std::shared_ptr<T>& ptr)
 {

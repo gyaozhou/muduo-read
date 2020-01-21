@@ -63,6 +63,8 @@ EventLoop* EventLoopThread::startLoop()
 // zhou: private main function of "thread_"
 void EventLoopThread::threadFunc()
 {
+  // zhou: function local variable satisfied the requirement,
+  //       since this function never return.
   EventLoop loop;
 
   // zhou: when not actual function providered, it will be false.

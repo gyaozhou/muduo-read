@@ -16,7 +16,10 @@ using namespace muduo::net;
 
 class Client;
 
-// zhou: each session represents a TCP connection, it belongs to one client.
+// zhou: in order to head-of-line blocking, more than one stream are used to transfer
+//       data between client and server.
+//       Why not implemented in TcpClient?
+//       Each session represents a TCP connection/stream, it belongs to one client.
 class Session : noncopyable
 {
  public:
@@ -79,7 +82,8 @@ class Session : noncopyable
 };
 
 
-// zhou: one client could own several sessions.
+// zhou: one client could own several sessions/streams, but the threads nunber is
+//       different from the session number.
 class Client : noncopyable
 {
  public:
@@ -95,7 +99,6 @@ class Client : noncopyable
       timeout_(timeout)
   {
     // zhou: fn require type, "typedef std::function<void()> TimerCallback".
-    //
     //       This is a standard way to bind a member function.
     //       It's safe to use this object pointer "this", since loop is a member
     //       of Client.

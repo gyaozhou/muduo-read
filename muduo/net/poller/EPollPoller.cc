@@ -171,6 +171,7 @@ void EPollPoller::updateChannel(Channel* channel)
   }
 }
 
+// zhou:
 void EPollPoller::removeChannel(Channel* channel)
 {
   Poller::assertInLoopThread();

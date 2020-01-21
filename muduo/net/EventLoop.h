@@ -162,6 +162,8 @@ public:
 
   std::unique_ptr<Poller> poller_;
 
+  // zhou: will be inited in ctor.
+  //       Any timer want be executed in this thread, should be managed by it.
   std::unique_ptr<TimerQueue> timerQueue_;
 
   // zhou: used to wait up a EventLoop which is blocked, from another thread.

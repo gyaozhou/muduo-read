@@ -31,6 +31,7 @@ class EchoServer
 
   typedef std::weak_ptr<muduo::net::TcpConnection> WeakTcpConnectionPtr;
 
+  // zhou: used in Timing Wheel.
   struct Entry : public muduo::copyable
   {
     explicit Entry(const WeakTcpConnectionPtr& weakConn)
@@ -49,9 +50,12 @@ class EchoServer
 
     WeakTcpConnectionPtr weakConn_;
   };
+
+  // zhou: "XxxPtr" means std::shared_ptr, "WeakXxxPtr" means std:weak_ptr.
   typedef std::shared_ptr<Entry> EntryPtr;
   typedef std::weak_ptr<Entry> WeakEntryPtr;
   typedef std::unordered_set<EntryPtr> Bucket;
+
   typedef boost::circular_buffer<Bucket> WeakConnectionList;
 
   muduo::net::TcpServer server_;

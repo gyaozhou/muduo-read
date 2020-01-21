@@ -47,6 +47,7 @@ Acceptor::~Acceptor()
 void Acceptor::listen()
 {
   loop_->assertInLoopThread();
+
   listenning_ = true;
   acceptSocket_.listen();
   acceptChannel_.enableReading();
@@ -86,4 +87,3 @@ void Acceptor::handleRead()
     }
   }
 }
-

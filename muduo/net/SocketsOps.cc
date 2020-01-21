@@ -49,6 +49,8 @@ void setNonBlockAndCloseOnExec(int sockfd)
 
 }  // namespace
 
+// zhou: "sockets" is NOT a class, just a namespace
+
 const struct sockaddr* sockets::sockaddr_cast(const struct sockaddr_in6* addr)
 {
   return static_cast<const struct sockaddr*>(implicit_cast<const void*>(addr));
@@ -302,4 +304,3 @@ bool sockets::isSelfConnect(int sockfd)
     return false;
   }
 }
-

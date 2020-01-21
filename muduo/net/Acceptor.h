@@ -35,6 +35,7 @@ class Acceptor : noncopyable
   Acceptor(EventLoop* loop, const InetAddress& listenAddr, bool reuseport);
   ~Acceptor();
 
+  // zhou: both listen() and accept() handled by Acceptor.
   void setNewConnectionCallback(const NewConnectionCallback& cb)
   { newConnectionCallback_ = cb; }
 
@@ -48,6 +49,8 @@ class Acceptor : noncopyable
   Socket acceptSocket_;
   Channel acceptChannel_;
   NewConnectionCallback newConnectionCallback_;
+
+  // zhou: start listen() or NOT
   bool listenning_;
   int idleFd_;
 };

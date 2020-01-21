@@ -59,6 +59,7 @@ void Channel::update()
   loop_->updateChannel(this);
 }
 
+// zhou: remove channel from EventLoop
 void Channel::remove()
 {
   assert(isNoneEvent());
@@ -67,7 +68,7 @@ void Channel::remove()
 }
 
 // zhou: handleEvent() and handleEventWithGuard() work as multiplexer, distribute
-//       events to different callback fn.
+//       events to different callback fn (READ/WRITE/...).
 void Channel::handleEvent(Timestamp receiveTime)
 {
   std::shared_ptr<void> guard;
@@ -96,6 +97,7 @@ void Channel::handleEventWithGuard(Timestamp receiveTime)
     {
       LOG_WARN << "fd = " << fd_ << " Channel::handle_event() POLLHUP";
     }
+    // zhou: e.g. TcpConnection::handleClose(),
     if (closeCallback_) closeCallback_();
   }
 
@@ -106,10 +108,12 @@ void Channel::handleEventWithGuard(Timestamp receiveTime)
 
   if (revents_ & (POLLERR | POLLNVAL))
   {
+    // zhou: e.g. TcpConnection::handleError(),
     if (errorCallback_) errorCallback_();
   }
   if (revents_ & (POLLIN | POLLPRI | POLLRDHUP))
   {
+    // zhou: e.g. TcpConnection::handleRead(),
     if (readCallback_) readCallback_(receiveTime);
   }
   if (revents_ & POLLOUT)

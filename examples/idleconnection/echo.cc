@@ -73,10 +73,14 @@ void EchoServer::onMessage(const TcpConnectionPtr& conn,
 
 void EchoServer::onTimer()
 {
+  // zhou: due to "connectionBuckets_" is type of boost::circular_buffer<Bucket>,
+  //       its size was set. So push_back means the oldest one will be dtor.
   connectionBuckets_.push_back(Bucket());
+
   dumpConnectionBuckets();
 }
 
+// zhou: print all members.
 void EchoServer::dumpConnectionBuckets() const
 {
   LOG_INFO << "size = " << connectionBuckets_.size();
@@ -96,4 +100,3 @@ void EchoServer::dumpConnectionBuckets() const
     puts("");
   }
 }
-

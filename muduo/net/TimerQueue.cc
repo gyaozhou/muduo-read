@@ -125,6 +125,7 @@ TimerId TimerQueue::addTimer(TimerCallback cb,
                              Timestamp when,
                              double interval)
 {
+  // zhou: who will manage the life cycle of "timer"?
   Timer* timer = new Timer(std::move(cb), when, interval);
 
   // zhou: EventLoop::runInLoop, required a functor "void()".
@@ -133,6 +134,8 @@ TimerId TimerQueue::addTimer(TimerCallback cb,
   loop_->runInLoop(
       std::bind(&TimerQueue::addTimerInLoop, this, timer));
 
+  // zhou: at this time, the timer is still not be queued into timer queue,
+  //       but the TimeId returned.
   return TimerId(timer, timer->sequence());
 }
 
@@ -142,7 +145,7 @@ void TimerQueue::cancel(TimerId timerId)
       std::bind(&TimerQueue::cancelInLoop, this, timerId));
 }
 
-// zhou: due to std::bind(), this function will be invoked from EventLoop.
+// zhou: this function will be invoked in EventLoop local thread.
 void TimerQueue::addTimerInLoop(Timer* timer)
 {
   loop_->assertInLoopThread();
@@ -162,10 +165,15 @@ void TimerQueue::cancelInLoop(TimerId timerId)
 
   ActiveTimer timer(timerId.timer_, timerId.sequence_);
   ActiveTimerSet::iterator it = activeTimers_.find(timer);
+
+  // zhou: maybe this timer was already expired?
   if (it != activeTimers_.end())
   {
+    // zhou: "typedef std::pair<Timestamp, Timer*> Entry;"
     size_t n = timers_.erase(Entry(it->first->expiration(), it->first));
+
     assert(n == 1); (void)n;
+
     delete it->first; // FIXME: no delete please
     activeTimers_.erase(it);
   }

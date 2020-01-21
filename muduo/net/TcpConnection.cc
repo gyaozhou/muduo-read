@@ -35,6 +35,8 @@ void muduo::net::defaultMessageCallback(const TcpConnectionPtr&,
   buf->retrieveAll();
 }
 
+// zhou: create when Acceptor::handleRead()->TcpServer::newConnection() a new
+//       connection.
 TcpConnection::TcpConnection(EventLoop* loop,
                              const string& nameArg,
                              int sockfd,
@@ -44,10 +46,14 @@ TcpConnection::TcpConnection(EventLoop* loop,
     name_(nameArg),
     state_(kConnecting),
     reading_(true),
+    // zhou: "sockfd" is managed by Socket only. But Channel will use it to
+    //       interop with poller. So before "socket_" dtor be invoekd, the
+    //       "channel_" must be removed from poller.
     socket_(new Socket(sockfd)),
     channel_(new Channel(loop, sockfd)),
     localAddr_(localAddr),
     peerAddr_(peerAddr),
+    // zhou: how to adjust the value according to different bandwidth?
     highWaterMark_(64*1024*1024)
 {
   channel_->setReadCallback(
@@ -188,6 +194,7 @@ void TcpConnection::sendInLoop(const void* data, size_t len)
         && oldLen < highWaterMark_
         && highWaterMarkCallback_)
     {
+      // zhou: too much data in output buffer, reach soft limitation.
       loop_->queueInLoop(std::bind(highWaterMarkCallback_, shared_from_this(), oldLen + remaining));
     }
     outputBuffer_.append(static_cast<const char*>(data)+nwrote, remaining);
@@ -338,6 +345,7 @@ void TcpConnection::connectEstablished()
   connectionCallback_(shared_from_this());
 }
 
+// zhou:
 void TcpConnection::connectDestroyed()
 {
   loop_->assertInLoopThread();
@@ -349,6 +357,8 @@ void TcpConnection::connectDestroyed()
 
     connectionCallback_(shared_from_this());
   }
+
+  // zhou: remove Channel from EventLoop.
   channel_->remove();
 }
 
@@ -362,11 +372,13 @@ void TcpConnection::handleRead(Timestamp receiveTime)
   ssize_t n = inputBuffer_.readFd(channel_->fd(), &savedErrno);
   if (n > 0)
   {
-    // zhou: invoke client's handler
+    // zhou: invoke client's message handler, e.g. pingpong/server.cc/onMessage()
+    //       The first argument is shared_ptr to TcpConnection.
     messageCallback_(shared_from_this(), &inputBuffer_, receiveTime);
   }
   else if (n == 0)
   {
+    // zhou: passive close TCP connection
     handleClose();
   }
   else
@@ -417,13 +429,18 @@ void TcpConnection::handleWrite()
   }
 }
 
+// zhou: passive close TCP connection
 void TcpConnection::handleClose()
 {
   loop_->assertInLoopThread();
+
   LOG_TRACE << "fd = " << channel_->fd() << " state = " << stateToString();
+
   assert(state_ == kConnected || state_ == kDisconnecting);
+
   // we don't close fd, leave it to dtor, so we can find leaks easily.
   setState(kDisconnected);
+
   channel_->disableAll();
 
   TcpConnectionPtr guardThis(shared_from_this());

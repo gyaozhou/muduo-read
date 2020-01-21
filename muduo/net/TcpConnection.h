@@ -34,6 +34,9 @@ class Channel;
 class EventLoop;
 class Socket;
 
+// zhou: TcpConnection only used to represent a TCP connection and transfer data.
+//       So Acceptor will NOT use it as listen purpose.
+
 ///
 /// TCP connection, for both client and server usage.
 ///
@@ -69,8 +72,11 @@ class TcpConnection : noncopyable,
   void send(Buffer* message);  // this one will swap data
   void shutdown(); // NOT thread safe, no simultaneous calling
   // void shutdownAndForceCloseAfter(double seconds); // NOT thread safe, no simultaneous calling
+
+  // zhou: actively close TCP connection.
   void forceClose();
   void forceCloseWithDelay(double seconds);
+
   void setTcpNoDelay(bool on);
   // reading or not
   void startRead();
@@ -86,6 +92,7 @@ class TcpConnection : noncopyable,
   boost::any* getMutableContext()
   { return &context_; }
 
+  // zhou: used by client to start sending data.
   void setConnectionCallback(const ConnectionCallback& cb)
   { connectionCallback_ = cb; }
 
@@ -116,6 +123,7 @@ class TcpConnection : noncopyable,
 
  private:
   enum StateE { kDisconnected, kConnecting, kConnected, kDisconnecting };
+
   void handleRead(Timestamp receiveTime);
   void handleWrite();
   void handleClose();
@@ -135,6 +143,8 @@ class TcpConnection : noncopyable,
   const string name_;
   StateE state_;  // FIXME: use atomic variable
   bool reading_;
+
+
   // we don't expose those classes to client.
   std::unique_ptr<Socket> socket_;
   std::unique_ptr<Channel> channel_;
@@ -144,6 +154,7 @@ class TcpConnection : noncopyable,
   ConnectionCallback connectionCallback_;
   // zhou: received message hander callback
   MessageCallback messageCallback_;
+  // zhou: all data in output buffer has been sent out.
   WriteCompleteCallback writeCompleteCallback_;
   HighWaterMarkCallback highWaterMarkCallback_;
   CloseCallback closeCallback_;

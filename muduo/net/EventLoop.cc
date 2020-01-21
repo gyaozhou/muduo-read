@@ -219,6 +219,7 @@ TimerId EventLoop::runAt(Timestamp time, TimerCallback cb)
   return timerQueue_->addTimer(std::move(cb), time, 0.0);
 }
 
+
 TimerId EventLoop::runAfter(double delay, TimerCallback cb)
 {
   Timestamp time(addTime(Timestamp::now(), delay));
@@ -236,6 +237,7 @@ void EventLoop::cancel(TimerId timerId)
   return timerQueue_->cancel(timerId);
 }
 
+// zhou: used by poller to register Channel.
 void EventLoop::updateChannel(Channel* channel)
 {
   assert(channel->ownerLoop() == this);

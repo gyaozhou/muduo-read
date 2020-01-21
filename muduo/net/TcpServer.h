@@ -100,10 +100,14 @@ class TcpServer : noncopyable
   typedef std::map<string, TcpConnectionPtr> ConnectionMap;
 
   EventLoop* loop_;  // the acceptor loop
+
   const string ipPort_;
   const string name_;
+
   std::unique_ptr<Acceptor> acceptor_; // avoid revealing Acceptor
+
   std::shared_ptr<EventLoopThreadPool> threadPool_;
+
   ConnectionCallback connectionCallback_;
   MessageCallback messageCallback_;
   WriteCompleteCallback writeCompleteCallback_;

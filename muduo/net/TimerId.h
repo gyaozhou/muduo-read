@@ -22,6 +22,7 @@ class Timer;
 
 // zhou: copyable, work like a std::weak_ptr<Timer>, have to check TimerQueue and
 //       make sure "timer_" is still valid before use it.
+//       TimerId will be preserved by user.
 
 ///
 /// An opaque identifier, for canceling Timer.
@@ -50,6 +51,10 @@ class TimerId : public muduo::copyable
 
  private:
   Timer* timer_;
+
+  // zhou: Althrough Timer includes "sequence_", but due to ABA problem, when we
+  //       want to cancel timer, Timer* is not safe enough, user perserved
+  //       sequence (within TimerId) helps to discriminate the correct Timer.
   int64_t sequence_;
 };
 

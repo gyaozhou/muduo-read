@@ -21,6 +21,8 @@ namespace net
 {
 
 // zhou: not only describe a Timer parameters, but also can handle the repeat.
+//       sequence is used to avoid ABA problem. "Timer *" is not enough to confirm
+//       the object is expected.
 
 ///
 /// Internal class for timer event.

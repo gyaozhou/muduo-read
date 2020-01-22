@@ -40,6 +40,7 @@ class Channel : noncopyable
   typedef std::function<void()> EventCallback;
   typedef std::function<void(Timestamp)> ReadEventCallback;
 
+  // zhou: channel is used to handle fd events.
   Channel(EventLoop* loop, int fd);
   ~Channel();
 

@@ -151,7 +151,7 @@ void EventLoop::loop()
     currentActiveChannel_ = NULL;
     eventHandling_ = false;
 
-    // zhou: handle Task Queue
+    // zhou: first handle channels, then handle deferred Task Queue.
     doPendingFunctors();
   }
 
@@ -303,7 +303,7 @@ void EventLoop::handleRead()
   }
 }
 
-// zhou: handle Task Queue.
+// zhou: handle Deferred Task Queue.
 void EventLoop::doPendingFunctors()
 {
   std::vector<Functor> functors;

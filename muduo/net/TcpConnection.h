@@ -160,6 +160,7 @@ class TcpConnection : noncopyable,
   CloseCallback closeCallback_;
 
   size_t highWaterMark_;
+  // zhou: belongs to TcpConnection.
   Buffer inputBuffer_;
   Buffer outputBuffer_; // FIXME: use list<Buffer> as output buffer.
   boost::any context_;
